@@ -5,7 +5,7 @@
     <div class="content">
       <header class="header" v-if="classConfig.data.length > 0">
         <div class="header-nav">
-          <tag-nav :list="classConfig.data" :active="active.class" @change-key="changeClassEvent" />
+          <tag-nav id="film-class-nav" :list="classConfig.data" :active="active.class" @change-key="changeClassEvent" />
         </div>
         <div v-if="filter.data[active.class]" class="quick_item quick_filter">
           <root-list-icon size="large" @click="isVisible.toolbar = !isVisible.toolbar" />
