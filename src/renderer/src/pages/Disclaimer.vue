@@ -7,20 +7,18 @@
       <div class="privacy-policy">
         <div class="header">{{ $t('pages.md.privacyPolicy.title') }}</div>
         <div class="main-content">
-          <MdPreview editorId="privacy-policy" :modelValue="$t('pages.md.privacyPolicy.content')"
-            previewTheme="vuepress" :theme="theme" />
+          <div ref="contentElm" v-html="mdContent" class="content"></div>
         </div>
       </div>
     </t-dialog>
   </div>
 </template>
 <script setup lang="ts">
-import 'md-editor-v3/lib/style.css';
+import MarkdownIt from 'markdown-it';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, ref, watch } from 'vue';
-import { MdPreview } from 'md-editor-v3';
 
-import { useSettingStore } from '@/store';
+import { t } from '@/locales';
 import { setDefault } from '@/api/setting';
 
 const props = defineProps({
@@ -29,12 +27,13 @@ const props = defineProps({
     default: false,
   },
 });
-const storeSetting = useSettingStore();
-const theme = computed(() => {
-  return storeSetting.displayMode;
-});
 const formVisible = ref(false);
+const md = new MarkdownIt({
+  linkify: true,
+});
+const mdContent = computed(() => (md.render(t('pages.md.privacyPolicy.content'))));
 const emit = defineEmits(['update:visible']);
+
 watch(
   () => formVisible.value,
   (val) => {
@@ -59,7 +58,7 @@ const updateAgreementMask = async (status) => {
 
 const cancelEvent = () => {
   updateAgreementMask(false);
-  MessagePlugin.warning({ content: '5秒后自动退出软件', duration: 5000 });
+  MessagePlugin.warning({ content: t('pages.md.privacyPolicy.quitTip'), duration: 5000 });
   setTimeout(() => {
     window.electron.ipcRenderer.send('quit-app');
   }, 5000);

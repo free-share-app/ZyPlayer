@@ -35,11 +35,23 @@
   height: 30px;
   border-radius: 5px;
   opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .nplayer_danmaku_send .nplayer_icon {
   position: relative;
   top: 5px;
+}
+
+.nplayer_control_volume_bars {
+  background: rgba(17, 18, 20, 0.8) !important;
+  backdrop-filter: saturate(180%) blur(20px) !important;
+  border-radius: 8px;
+  font-size: 14px;
+  height: 130px;
+  text-align: center;
+  width: 39px;
+  left: -5px !important;
 }
 
 .nplayer_control_volume-hor .nplayer_control_volume_bars {
@@ -49,8 +61,35 @@
 }
 
 .nplayer_control_volume_bar {
+  border-radius: 2px;
+  left: 18px;
+  position: relative;
+  width: 3px !important;
   background-image: linear-gradient(90deg, #00e038, #32ccff) !important;
-  border-radius: 0 5px 5px 0;
+}
+
+.nplayer_control_volume_bar::before {
+  /* content: ''; */
+  cursor: pointer;
+  background-color: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 15px 0 #00d157;
+  opacity: 1;
+  top: 0;
+  left: -4px;
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  z-index: 5;
+}
+
+.nplayer_control > .nplayer_control_bar:first-child {
+  height: 14px;
+  width: 100%;
+}
+
+.nplayer_control_bar-top {
+  display: none !important;
 }
 
 .nplayer_danmaku_send_btn {
@@ -97,12 +136,14 @@
 .nplayer_popover-active .nplayer_popover_panel {
   border-radius: 8px;
   background-color: rgba(17, 18, 20, 0.8);
+  backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: none !important;
 }
 
 .nplayer_control_setting_item:hover,
 .nplayer_control_setting_option:hover {
   color: #fff !important;
-  background: hsla(0, 0%, 100%, .04) !important;
+  background: hsla(0, 0%, 100%, 0.04) !important;
 }
 
 .nplayer_checkbox-active:before {
@@ -114,8 +155,31 @@
   color: #00e038 !important;
 }
 
+.nplayer_control_time-live:before {
+  background: #00d157 !important;
+}
+
+.nplayer_tooltip_content {
+  background: rgba(17, 18, 20, 0.8);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-radius: 8px;
+}
+
+.nplayer_danmaku_reset {
+  height: 28px;
+  line-height: 28px;
+  border-radius: 14px;
+  background-color: #2b2b2b;
+  text-align: center;
+  font-size: 12px;
+}
+
 .xg-icon-setting,
 .xg-icon-danmu {
+  fill: #fff;
+}
+
+svg.xgplayer-danmu-open-svg circle {
   fill: #fff;
 }
 

@@ -60,7 +60,7 @@
       </template>
     </t-table>
 
-    <dialog-add-view v-model:visible="isVisible.dialogAdd" @refresh-table-data="refreshEvent" />
+    <dialog-add-view v-model:visible="isVisible.dialogAdd" @add-table-data="tableAdd" />
     <dialog-edit-view v-model:visible="isVisible.dialogEdit" :data="formData" />
     <!-- <dialog-ali-auth-view v-model:visible="isVisible.dialogAliAuth" /> -->
   </div>
@@ -103,7 +103,11 @@ const pagination = reactive({
 
 const driveTableConfig = ref({
   data: [],
+  rawData: [],
   sort: {},
+  filter: {
+    type: [],
+  },
   select: [],
   default: ''
 })
@@ -111,7 +115,7 @@ const driveTableConfig = ref({
 const emitReload = useEventBus<string>('drive-reload');
 
 watch(
-  () => driveTableConfig.value.data,
+  () => driveTableConfig.value.rawData,
   (_, oldValue) => {
     if (oldValue.length > 0) {
       emitReload.emit('drive-reload');
@@ -145,6 +149,7 @@ const getData = async () => {
     }
     if (_.has(res, 'data') && res["data"]) {
       driveTableConfig.value.data = res.data;
+      driveTableConfig.value.rawData = res.data;
     }
     if (_.has(res, 'total') && res["total"]) {
       pagination.total = res.total;
@@ -161,6 +166,7 @@ onMounted(() => {
 const refreshEvent = (page = false) => {
   getData();
   if (page) pagination.current = 1;
+  if (driveTableConfig.value.filter) driveTableConfig.value.filter = { type: [] };
 };
 
 const editEvent = (row) => {
@@ -174,10 +180,41 @@ const switchStatus = (row) => {
   updateDriveItem(row.id, { isActive: row.isActive });
 };
 
+const tableUpdateIsActive = (select, isActiveValue: boolean) => {
+  select.forEach((itemId) => {
+    const item: any = _.find(driveTableConfig.value.data, { id: itemId });
+    const rawTtem: any = _.find(driveTableConfig.value.rawData, { id: itemId });
+    if (item) item.isActive = isActiveValue;
+    if (item) rawTtem.isActive = isActiveValue;
+  });
+};
+
+const tableAdd = (item) => {
+  let { filter = { type: [] }, data = [] as any, rawData = [] as any } = driveTableConfig.value;
+  const filterType: any = filter?.type || [];
+
+  const shouldFilter = filterType.length > 0 && !filterType.includes(item.type);
+
+  if (!shouldFilter) {
+    pagination.total += 1;
+    data = [...data, item];
+  }
+  rawData = [...rawData, item];
+  driveTableConfig.value = { ...driveTableConfig.value, data, rawData };
+};
+
+const tableDelete = (select) => {
+  select.forEach((itemId) => {
+    _.remove(driveTableConfig.value.data, (item: any) => item.id === itemId);
+    _.remove(driveTableConfig.value.rawData, (item: any) => item.id === itemId);
+  });
+};
+
 const removeEvent = (row) => {
   try {
     delDriveItem(row.id);
-    refreshEvent();
+    tableDelete([row.id]);
+    pagination.total -= 1;
     MessagePlugin.success(t('pages.setting.form.success'));
   } catch (err) {
     console.log('[setting][drive][removeEvent][error]', err);
@@ -194,10 +231,14 @@ const handleAllDataEvent = (type) => {
     }
     if (type === 'enable') {
       updateDriveStatus('enable', select);
+      tableUpdateIsActive(select, true);
     } else if (type === 'disable') {
       updateDriveStatus('disable', select);
+      tableUpdateIsActive(select, false);
     } else if (type === 'delete') {
       delDriveItem(select);
+      tableDelete(select);
+      pagination.total -= select.length;
     }
     refreshEvent();
     MessagePlugin.success(t('pages.setting.form.success'));
@@ -238,7 +279,7 @@ const aliAuthEvent = () => {
       display: flex;
       height: var(--td-comp-size-m);
       padding: 0 var(--td-comp-paddingLR-xs);
-      background-color: var(--td-bg-content-input);
+      background-color: var(--td-bg-content-input-2);
       border-radius: var(--td-radius-default);
       align-items: center;
       border-radius: var(--td-radius-medium);
@@ -256,30 +297,9 @@ const aliAuthEvent = () => {
         &:hover {
           transition: all 0.2s ease 0s;
           color: var(--td-text-color-primary);
-          background-color: var(--td-bg-color-container-hover);
         }
       }
     }
-  }
-
-  :deep(.t-table) {
-    background-color: var(--td-bg-color-container);
-
-    tr {
-      background-color: var(--td-bg-color-container);
-
-      &:hover {
-        background-color: var(--td-bg-color-container-hover);
-      }
-    }
-  }
-
-  :deep(.t-table__header--fixed):not(.t-table__header--multiple)>tr>th {
-    background-color: var(--td-bg-color-container);
-  }
-
-  :deep(.t-table__pagination) {
-    background-color: var(--td-bg-color-container);
   }
 }
 </style>

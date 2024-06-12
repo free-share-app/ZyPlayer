@@ -2,8 +2,8 @@
  * @module multi-player
  * @brief 多播放器集成方案
  * @author HiramWong <admin@catni.cn>
- * @update 2024-05-25
- * @version 0.0.6
+ * @update 2024-06-02
+ * @version 0.0.8
  *
  * **ChangeLog说明**:
  * - 2024.5.12:
@@ -25,16 +25,35 @@
  * - 2024.5.25:
  *   - 动态异步加载依赖
  *   - 按播放器解耦
- *
+ * - 2024.6.1:
+ *   - 修复playerNext方法nplayer类型为mp4不生效
+ *   - 统一风格-nplayer音量进度条改为垂直|扩展画中画控制栏显示|live模式去进度条
+ *   - 统一风格-live模式去除相关弹幕组件[减少内存]
+ * - 2024.6.2:
+ *   - 修复mpd无法播放问题-类型映射
+ *   - 修复xgplayer初始化播放器失败-plugin赋值错误
+ *   - 优化mpd播放-使用shaka库替代dash库[dash库经常卡死|反复请求同一分片]
+ *   - 修复artplayer弹幕库5.1版本-参数对齐
+ *   - 修复nplayer弹幕不滚动-BulletOption中type赋值错误
+ *   - 修复dplayer弹幕控制不生效-弹幕开关控制逻辑误删
+ * - 2024.6.3:
+ *   - 支持mp3|m4a音频-使用MPEG-TS库
+ * - 2024.6.4:
+ *   - 修复西瓜播放器加载视频错误
+ *   - 修复多次创建播放器扩展插件会重复添加-默认参数使用深拷贝
  *
  * ---
  */
 
+import cloneDeep from 'lodash/cloneDeep';
 import { checkMediaType, checkLiveM3U8 } from '@/utils/tool';
 
 let playerModulesCache: { [key: string]: any } = {};
 
 const mapVideoTypeToPlayerType = (videoType: string): string | undefined => {
+  const audioTypes = ['mp3', 'm4a', 'wav', 'flac', 'aac', 'ogg', 'wma'];
+  if (audioTypes.includes(videoType)) return 'customMpegts';
+
   switch (videoType) {
     case 'mp4':
       return 'customMp4';
@@ -114,7 +133,7 @@ const playerBarrage = async (player: any, playerMode: string, data: any, options
         color: item[color],
         text: item[content],
         time: parseInt(item[start]),
-        type: ['left', 'right'].includes(item[mode]) ? 'scroll' : item[mode],
+        type: item[mode] === 'top' || item[mode] === 'bottom' ? item[mode] : 'scroll',
         isMe: false,
         force: true,
       }));
@@ -141,7 +160,7 @@ const playerCreate = async (
   const isLive = type === 'iptv' ? await checkLiveM3U8(url) : false;
   videoType = videoType || (await checkMediaType(url)) || '';
 
-  let config = options;
+  let config = cloneDeep(options);
   if (playerMode === 'xgplayer') {
     config.id = container;
     config.url = url;
@@ -178,9 +197,12 @@ const playerNext = async (player: any, playerMode: string, options: any) => {
   const playerModule = await loadPlayerMethod(playerMode);
   const { playNext } = playerModule;
 
+  const { url, mediaType } = options;
+  const videoType = mediaType || (await checkMediaType(url)) || '';
+
   let data = {
-    url: options.url,
-    type: mapVideoTypeToPlayerType(options.mediaType),
+    url,
+    type: mapVideoTypeToPlayerType(videoType),
   };
 
   return playNext(player, data);

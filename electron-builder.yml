@@ -1,7 +1,7 @@
 # see config at https://www.electron.build/configuration/configuration
 
 # 本次构建版本
-buildVersion: Andeya-20240528
+buildVersion: Andeya-20240612
 
 # 应用程序的唯一标识符
 appId: com.hiram.zyplayer

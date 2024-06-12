@@ -1,12 +1,14 @@
 import { electronApp, is, platform } from '@electron-toolkit/utils';
 import { exec } from 'child_process';
-import { app, globalShortcut, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, nativeTheme, shell } from 'electron';
 import fs from 'fs-extra';
 import { join } from 'path';
 
 import logger from './logger';
 import { setting } from './db/service';
 import puppeteerInElectron from '../utils/pie';
+import { toggleWindowVisibility } from '../utils/tool';
+import { createMain, createPlay, getWin } from './winManger';
 
 const tmpDir = async (path: string) => {
   try {
@@ -46,12 +48,6 @@ const ipcListen = () => {
       exec(command);
       logger.info(`[ipcMain] call-player: command:${command}`);
     }
-  });
-
-  ipcMain.on('reboot-app', () => {
-    logger.info(`[ipcMain] reboot-app`);
-    app.relaunch();
-    app.exit();
   });
 
   const getFolderSize = (folderPath: string): number => {
@@ -160,19 +156,79 @@ const ipcListen = () => {
     return path;
   });
 
-  ipcMain.handle('path-join', (event, fromPath, toPath) => {
+  ipcMain.handle('path-join', (_, fromPath, toPath) => {
     return join(fromPath, toPath);
   });
 
   // 重启app
-  ipcMain.on('relaunch-app', () => {
+  ipcMain.on('reboot-app', () => {
+    logger.info(`[ipcMain] reboot-app`);
     app.relaunch();
-    app.quit();
+    app.exit(); // 直接强制关闭
+    // app.quit(); // 生命周期, 有回调函数
   });
 
   // 关闭app
   ipcMain.on('quit-app', () => {
     app.quit();
+  });
+
+  ipcMain.on('openPlayWindow', (_, _arg) => {
+    createPlay();
+  });
+
+  ipcMain.on('showMainWin', () => {
+    logger.info(`[ipcMain] show main windows`);
+    const win = getWin('main');
+    if (!win || win.isDestroyed()) {
+      createMain();
+    } else {
+      win.show();
+    }
+  });
+
+  ipcMain.on('updateShortcut', (_, { shortcut }) => {
+    logger.info(`[ipcMain] storage-shortcuts: ${shortcut}`);
+    globalShortcut.unregisterAll();
+    logger.info(`[ipcMain] globalShortcut-install: ${shortcut}`);
+    globalShortcut.register(shortcut, () => {
+      toggleWindowVisibility();
+    });
+  });
+
+  ipcMain.on('manage-playerWindow', (_, action) => {
+    logger.info(`[ipcMain] playerWindow: action is ${action}`);
+    const win = getWin('play');
+    if (action === 'destroy') {
+      win?.destroy();
+    } else if (action === 'focus') {
+      win?.focus();
+    }
+  });
+
+  // 事件广播通知
+  ipcMain.handle('event-broadcast', (event, eventInfo) => {
+    // 遍历window执行
+    for (const currentWin of BrowserWindow.getAllWindows()) {
+      // 注意，这里控制了发送广播的窗口，不触发对应事件，如果需要自身也触发的话，删除if内的逻辑即可
+      if (event) {
+        const webContentsId = currentWin.webContents.id;
+        if (webContentsId === event.sender.id) {
+          continue;
+        }
+      }
+      currentWin.webContents.send(eventInfo.channel, eventInfo.body);
+    }
+  });
+
+  // 主题更新事件
+  nativeTheme.on('updated', () => {
+    const isDarkMode = nativeTheme.shouldUseDarkColors;
+    const mainWin = getWin('main');
+    const playWin = getWin('play');
+    if (mainWin) mainWin.webContents.send('system-theme-updated', `${isDarkMode ? 'dark' : 'light'}`);
+    if (playWin) playWin.webContents.send('system-theme-updated', `${isDarkMode ? 'dark' : 'light'}`);
+    logger.info(`[nativeTheme] System-theme-updated: ${isDarkMode ? 'dark' : 'light'} ; send to vue app`);
   });
 };
 

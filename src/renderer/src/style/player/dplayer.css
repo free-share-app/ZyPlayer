@@ -44,6 +44,7 @@
 .dplayer-controller .dplayer-icons .dplayer-setting .dplayer-setting-box {
   border-radius: 8px !important;
   background-color: rgba(17, 18, 20, 0.8) !important;
+  backdrop-filter: saturate(180%) blur(20px) !important;
 }
 
 .dplayer-controller .dplayer-icons .dplayer-setting .dplayer-setting-item:hover,
@@ -80,6 +81,7 @@
 
 .dplayer-comment {
   opacity: 0 !important;
+  pointer-events: none !important;
   display: none !important;
 }
 
@@ -182,4 +184,8 @@
 
 .dplayer-menu .dplayer-menu-item a {
   text-decoration: none;
+}
+
+.dplayer-controller .dplayer-icons .dplayer-live-dot {
+  background: #00d157 !important;
 }

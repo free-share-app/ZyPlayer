@@ -1,6 +1,6 @@
 <template>
   <div class="film view-container">
-    <common-nav :title="$t('pages.film.name')" :list="siteConfig.data" :active="active.nav"
+    <common-nav :title="$t('pages.film.name')" :list="siteConfig.data" :active="active.nav" search
       @change-key="changeSitesEvent" />
     <div class="content">
       <header class="header" v-if="classConfig.data.length > 0">
@@ -618,6 +618,7 @@ const playEvent = async (item) => {
     } else {
       storePlayer.updateConfig({
         type: 'film',
+        status: true,
         data: {
           info: item,
           ext: { site: site },
@@ -638,8 +639,12 @@ const playEvent = async (item) => {
 const filmReloadeventBus = useEventBus<string>('film-reload');
 const filmSearcheventBus = useEventBus<string>('film-search');
 
-filmSearcheventBus.on((kw: string) => {
+filmSearcheventBus.on((kw: string, groupType: 'local' | 'group' | 'all') => {
   searchTxt.value = kw;
+  if (siteConfig.value.search !== groupType) {
+    siteConfig.value.search = groupType;
+    siteConfig.value.searchGroup = searchGroup(groupType);
+  };
   searchEvent();
 });
 

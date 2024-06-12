@@ -38,9 +38,10 @@
         </div>
       </t-row>
     </div>
-    <t-table row-key="id" :data="analyzeTableConfig.data" :sort="analyzeTableConfig.sort" height="calc(100vh - 180px)"
-      :columns="COLUMNS" :hover="true" :pagination="pagination" @sort-change="rehandleSortChange"
-      @select-change="rehandleSelectChange" @page-change="rehandlePageChange">
+    <t-table row-key="id" height="calc(100vh - 180px)" :data="analyzeTableConfig.data" :sort="analyzeTableConfig.sort"
+      :filter-value="analyzeTableConfig.filter" :columns="COLUMNS" :hover="true" :pagination="pagination"
+      @sort-change="rehandleSortChange" @filter-change="rehandleFilterChange" @select-change="rehandleSelectChange"
+      @page-change="rehandlePageChange">
       <template #name="{ row }">
         <t-badge v-if="row.id === analyzeTableConfig.default" size="small" :offset="[0, 3]" count="默" dot>{{ row.name
           }}</t-badge>
@@ -68,7 +69,7 @@
         </t-space>
       </template>
     </t-table>
-    <dialog-add-view v-model:visible="isVisible.dialogAdd" @refresh-table-data="refreshEvent" />
+    <dialog-add-view v-model:visible="isVisible.dialogAdd" @add-table-data="tableAdd" />
     <dialog-edit-view v-model:visible="isVisible.dialogEdit" :data="formData" />
     <dialog-flag-view v-model:visible="isVisible.dialogFlag" :data="analyzeTableConfig.flag" />
   </div>
@@ -112,7 +113,11 @@ const pagination = reactive({
 
 const analyzeTableConfig = ref({
   data: [],
+  rawData: [],
   sort: {},
+  filter: {
+    type: [],
+  },
   select: [],
   default: '',
   group: [],
@@ -122,7 +127,7 @@ const analyzeTableConfig = ref({
 const emitReload = useEventBus<string>('analyze-reload');
 
 watch(
-  () => analyzeTableConfig.value.data,
+  () => analyzeTableConfig.value.rawData,
   (_, oldValue) => {
     if (oldValue.length > 0) {
       emitReload.emit('analyze-reload');
@@ -143,6 +148,7 @@ onMounted(() => {
 const refreshEvent = (page = false) => {
   getData();
   if (page) pagination.current = 1;
+  if (analyzeTableConfig.value.filter) analyzeTableConfig.value.filter = { type: [] };
 };
 
 const rehandlePageChange = (curr) => {
@@ -156,6 +162,31 @@ const rehandleSortChange = (sortVal, options) => {
   analyzeTableConfig.value.data = options.currentDataSource;
 };
 
+const request = (filters) => {
+  const timer = setTimeout(() => {
+    clearTimeout(timer);
+    const newData = analyzeTableConfig.value.rawData.filter((item: any) => {
+      let result = true;
+      if (result && filters.type && filters.type.length) {
+        result = filters.type.filter((item_one) => item.type === item_one).length > 0;
+      }
+      return result;
+    });
+    analyzeTableConfig.value.data = newData;
+    pagination.current = 1;
+    pagination.total = newData.length;
+  }, 100);
+};
+
+const rehandleFilterChange = (filters, ctx) => {
+  console.log('filter-change', filters, ctx);
+  analyzeTableConfig.value.filter = {
+    ...filters,
+    type: filters.type || [],
+  };
+  request(filters);
+};
+
 // 获取列表
 const getData = async () => {
   try {
@@ -165,6 +196,7 @@ const getData = async () => {
     }
     if (_.has(res, 'data') && res["data"]) {
       analyzeTableConfig.value.data = res.data;
+      analyzeTableConfig.value.rawData = res.data;
     }
     if (_.has(res, 'total') && res["total"]) {
       pagination.total = res.total;
@@ -190,11 +222,42 @@ const switchStatus = (row) => {
   updateAnalyzeItem(row.id, { isActive: row.isActive });
 };
 
+const tableUpdateIsActive = (select, isActiveValue: boolean) => {
+  select.forEach((itemId) => {
+    const item: any = _.find(analyzeTableConfig.value.data, { id: itemId });
+    const rawTtem: any = _.find(analyzeTableConfig.value.rawData, { id: itemId });
+    if (item) item.isActive = isActiveValue;
+    if (item) rawTtem.isActive = isActiveValue;
+  });
+};
+
+const tableDelete = (select) => {
+  select.forEach((itemId) => {
+    _.remove(analyzeTableConfig.value.data, (item: any) => item.id === itemId);
+    _.remove(analyzeTableConfig.value.rawData, (item: any) => item.id === itemId);
+  });
+};
+
+const tableAdd = (item) => {
+  let { filter = { type: [] }, data = [] as any, rawData = [] as any } = analyzeTableConfig.value;
+  const filterType: any = filter?.type || [];
+
+  const shouldFilter = filterType.length > 0 && !filterType.includes(item.type);
+
+  if (!shouldFilter) {
+    pagination.total += 1;
+    data = [...data, item];
+  }
+  rawData = [...rawData, item];
+  analyzeTableConfig.value = { ...analyzeTableConfig.value, data, rawData };
+};
+
 // 删除
 const removeEvent = async (row) => {
   try {
     delAnalyzeItem(row.id);
-    refreshEvent();
+    tableDelete([row.id]);
+    pagination.total -= 1;
     MessagePlugin.success(t('pages.setting.form.success'));
   } catch (err) {
     console.log('[setting][analyze][removeEvent][error]', err);
@@ -211,12 +274,16 @@ const handleAllDataEvent = (type) => {
     }
     if (type === 'enable') {
       updateAnalyzeStatus('enable', select);
+      tableUpdateIsActive(select, true);
     } else if (type === 'disable') {
       updateAnalyzeStatus('disable', select);
+      tableUpdateIsActive(select, false);
     } else if (type === 'delete') {
       delAnalyzeItem(select);
+      tableDelete(select);
+      pagination.total -= select.length;
     }
-    refreshEvent();
+
     MessagePlugin.success(t('pages.setting.form.success'));
   } catch (err) {
     console.log('[setting][analyze][handleAllDataEvent][error]', err);
@@ -251,7 +318,7 @@ const defaultEvent = async (row) => {
       display: flex;
       height: var(--td-comp-size-m);
       padding: 0 var(--td-comp-paddingLR-xs);
-      background-color: var(--td-bg-content-input);
+      background-color: var(--td-bg-content-input-2);
       border-radius: var(--td-radius-default);
       align-items: center;
       border-radius: var(--td-radius-medium);
@@ -269,30 +336,9 @@ const defaultEvent = async (row) => {
         &:hover {
           transition: all 0.2s ease 0s;
           color: var(--td-text-color-primary);
-          background-color: var(--td-bg-color-container-hover);
         }
       }
     }
-  }
-
-  :deep(.t-table) {
-    background-color: var(--td-bg-color-container);
-
-    tr {
-      background-color: var(--td-bg-color-container);
-
-      &:hover {
-        background-color: var(--td-bg-color-container-hover);
-      }
-    }
-  }
-
-  :deep(.t-table__header--fixed):not(.t-table__header--multiple)>tr>th {
-    background-color: var(--td-bg-color-container);
-  }
-
-  :deep(.t-table__pagination) {
-    background-color: var(--td-bg-color-container);
   }
 }
 </style>

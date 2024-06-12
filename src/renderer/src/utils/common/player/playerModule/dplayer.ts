@@ -136,6 +136,10 @@ const barrge = (player: any, comments: any, _url: string, _id: string) => {
 };
 
 const create = (options: any): any => {
+  if (options.live) {
+    delete options?.danmaku;
+  }
+
   const player: any = new CustomDPlayer({ ...options });
   // 元素替换，原生太丑
   elementDeal.replace('.dplayer-comment-icon', publicIcons.danmu);
@@ -154,9 +158,10 @@ const create = (options: any): any => {
       </button>
     `,
   );
-  elementDeal.add(
-    '.dplayer-setting',
-    `
+  if (!options.live) {
+    elementDeal.add(
+      '.dplayer-setting',
+      `
       <div class="dplayer-subtitle-btn">
         <button class="dplayer-icon dplayer-subtitle-icon" data-balloon="${player.template.showDanmakuToggle.checked ? '显示弹幕' : '关闭弹幕'}" data-balloon-pos="up">
           <span class="dplayer-icon-content" style="">
@@ -165,7 +170,22 @@ const create = (options: any): any => {
         </button>
       </div>
     `,
-  );
+    );
+  }
+
+  // 弹幕事件处理
+  const handleDanmuClick = () => {
+    let showDanmaku: any = document.querySelector('.dplayer-setting-showdan');
+    (player.template.showDanmakuToggle.checked = !player.template.showDanmakuToggle.checked),
+      player.template.showDanmakuToggle.checked
+        ? ((showDanmaku = !0),
+          player.danmaku.show(),
+          elementDeal.replace('.dplayer-subtitle-icon', publicIcons.openDanmu))
+        : ((showDanmaku = !1),
+          player.danmaku.hide(),
+          elementDeal.replace('.dplayer-subtitle-icon', publicIcons.closeDanmu)),
+      player.user.set('danmaku', showDanmaku ? 1 : 0);
+  };
 
   const handlePipClick = () => {
     const videoElement: HTMLVideoElement | null = document.querySelector('.dplayer-video');
@@ -180,6 +200,8 @@ const create = (options: any): any => {
 
   const pipButton = document.querySelector('.dplayer-pip-icon');
   if (pipButton) pipButton.addEventListener('click', handlePipClick);
+  const danmuButton = document.querySelector('.dplayer-subtitle-icon');
+  if (danmuButton) danmuButton.addEventListener('click', handleDanmuClick);
   return player;
 };
 

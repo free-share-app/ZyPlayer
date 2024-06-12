@@ -1,5 +1,6 @@
 export default {
-  type: 'film',
+  type: '',
+  status: false,
   setting: {
     playerMode: {
       type: 'dplayer',
@@ -9,8 +10,8 @@ export default {
       type: 'pie',
       url: ''
     },
-    skipStartEnd: true,
-    preloadNext: true,
+    skipStartEnd: false,
+    preloadNext: false,
     skipAd: false,
     barrage: {
       url: '',

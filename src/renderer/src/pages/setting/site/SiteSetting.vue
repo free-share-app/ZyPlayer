@@ -20,7 +20,7 @@
               <remove-icon />
               <span>{{ $t('pages.setting.header.delete') }}</span>
             </div>
-            <div class="item" @click="checkAllSite">
+            <div class="item" @click="handleAllDataEvent('check')">
               <refresh-icon />
               <span>{{ $t('pages.setting.header.check') }}</span>
             </div>
@@ -39,8 +39,9 @@
       </t-row>
     </div>
     <t-table row-key="id" height="calc(100vh - 180px)" :data="siteTableConfig.data" :sort="siteTableConfig.sort"
-      :columns="COLUMNS" :hover="true" :pagination="pagination" @sort-change="rehandleSortChange"
-      @select-change="rehandleSelectChange" @page-change="rehandlePageChange">
+      :filter-value="siteTableConfig.filter" :columns="COLUMNS" :hover="true" :pagination="pagination"
+      @sort-change="rehandleSortChange" @filter-change="rehandleFilterChange" @select-change="rehandleSelectChange"
+      @page-change="rehandlePageChange">
       <template #name="{ row }">
         <t-badge v-if="row.id === siteTableConfig.default" size="small" :offset="[0, 3]" count="默" dot>{{ row.name
           }}</t-badge>
@@ -61,6 +62,16 @@
         <t-tag v-else-if="row.search === 2" theme="warning" shape="round" variant="light-outline">{{
           $t('pages.setting.table.site.local') }}</t-tag>
       </template>
+      <template #type="{ row }">
+        <span v-if="row.type === 0">cms[xml]</span>
+        <span v-else-if="row.type === 1">cms[json]</span>
+        <span v-else-if="row.type === 2">drpy[js0]</span>
+        <span v-else-if="row.type === 6">hipy[t4]</span>
+        <span v-else-if="row.type === 7">js[t3]</span>
+        <span v-else-if="row.type === 8">catvod[nodejs]</span>
+        <span v-else-if="row.type === 3">app[v3]</span>
+        <span v-else-if="row.type === 4">app[v1]</span>
+      </template>
       <template #op="slotProps">
         <t-space>
           <t-link theme="primary" @click="defaultEvent(slotProps.row)">{{ $t('pages.setting.table.default') }}</t-link>
@@ -73,10 +84,8 @@
         </t-space>
       </template>
     </t-table>
-    <dialog-add-view v-model:visible="isVisible.dialogAdd" :group="siteTableConfig.group"
-      @refresh-table-data="refreshEvent" />
-    <dialog-edit-view v-model:visible="isVisible.dialogEdit" :data="formData" :group="siteTableConfig.group"
-      @refresh-table-data="refreshEvent" />
+    <dialog-add-view v-model:visible="isVisible.dialogAdd" :group="siteTableConfig.group" @add-table-data="tableAdd" />
+    <dialog-edit-view v-model:visible="isVisible.dialogEdit" :data="formData" :group="siteTableConfig.group" />
   </div>
 </template>
 
@@ -118,7 +127,11 @@ const pagination = reactive({
 
 const siteTableConfig = ref({
   data: [],
+  rawData: [],
   sort: {},
+  filter: {
+    type: [],
+  },
   select: [],
   default: '',
   group: []
@@ -133,7 +146,7 @@ const rehandleSelectChange = (val) => {
 const emitReload = useEventBus<string>('film-reload');
 
 watch(
-  () => siteTableConfig.value.data,
+  () => siteTableConfig.value.rawData,
   (_, oldValue) => {
     if (oldValue.length > 0) {
       emitReload.emit('film-reload');
@@ -152,6 +165,7 @@ const getData = async () => {
     }
     if (_.has(res, 'data') && res["data"]) {
       siteTableConfig.value.data = res.data;
+      siteTableConfig.value.rawData = res.data;
     }
     if (_.has(res, 'total') && res["total"]) {
       pagination.total = res.total;
@@ -181,28 +195,25 @@ const refreshEvent = (page = false) => {
   getData();
   getGroup();
   if (page) pagination.current = 1;
+  if (siteTableConfig.value.filter) siteTableConfig.value.filter = { type: [] };
 };
 
 // op
-const checkAllSite = async () => {
-  let checkData: any = [];
-  const { select, data } = siteTableConfig.value;
-  if (select.length === 0) {
-    checkData = [...data]
-  } else {
+const checkAllSite = async (select) => {
+  try {
+    let checkData: any = [];
+    const { data } = siteTableConfig.value;
+
     select.forEach((item) => {
       const res = _.find(data, { id: item })
       checkData.push(res)
-    })
-  }
-  MessagePlugin.info('状态批量检测中, 请等待完成')
-  try {
+    });
+
     await Promise.all(checkData.map(item => queue.add(() => checkSingleEvent(item, true))));
     emitReload.emit('film-reload');
-    MessagePlugin.success(t('pages.setting.form.success'));
   } catch (err) {
-    console.log('[setting][site][checkAllSite][error]', err);
-    MessagePlugin.error(`${t('pages.setting.form.fail')}: ${err}`);
+    console.error('[setting][site][checkAllSite][error]', err);
+    throw err;
   }
 };
 
@@ -229,6 +240,31 @@ const rehandleSortChange = (sortVal, options) => {
   siteTableConfig.value.data = options.currentDataSource;
 };
 
+const request = (filters) => {
+  const timer = setTimeout(() => {
+    clearTimeout(timer);
+    const newData = siteTableConfig.value.rawData.filter((item: any) => {
+      let result = true;
+      if (result && filters.type && filters.type.length) {
+        result = filters.type.filter((item_one) => item.type === item_one).length > 0;
+      }
+      return result;
+    });
+    siteTableConfig.value.data = newData;
+    pagination.current = 1;
+    pagination.total = newData.length;
+  }, 100);
+};
+
+const rehandleFilterChange = (filters, ctx) => {
+  console.log('filter-change', filters, ctx);
+  siteTableConfig.value.filter = {
+    ...filters,
+    type: filters.type || [],
+  };
+  request(filters);
+};
+
 const editEvent = (row) => {
   const index = row.rowIndex + pagination.pageSize * (pagination.current - 1)
   formData.value = siteTableConfig.value.data[index];
@@ -240,10 +276,42 @@ const switchStatus = async (row) => {
   updateSiteItem(row.id, { isActive: row.isActive });
 };
 
+const tableUpdateIsActive = (select, isActiveValue: boolean) => {
+  select.forEach((itemId) => {
+    const item: any = _.find(siteTableConfig.value.data, { id: itemId });
+    const rawTtem: any = _.find(siteTableConfig.value.rawData, { id: itemId });
+    if (item) item.isActive = isActiveValue;
+    if (item) rawTtem.isActive = isActiveValue;
+  });
+};
+
+const tableDelete = (select) => {
+  select.forEach((itemId) => {
+    _.remove(siteTableConfig.value.data, (item: any) => item.id === itemId);
+    _.remove(siteTableConfig.value.rawData, (item: any) => item.id === itemId);
+  });
+};
+
+const tableAdd = (item) => {
+  let { filter = { type: [] }, data = [] as any, rawData = [] as any } = siteTableConfig.value;
+  const filterType: any = filter?.type || [];
+
+  const shouldFilter = filterType.length > 0 && !filterType.includes(item.type);
+
+  if (!shouldFilter) {
+    pagination.total += 1;
+    data = [...data, item];
+  }
+  rawData = [...rawData, item];
+  siteTableConfig.value = { ...siteTableConfig.value, data, rawData };
+};
+
 const removeEvent = async (row) => {
   try {
     delSiteItem(row.id);
-    refreshEvent();
+    tableDelete([row.id]);
+    pagination.total -= 1;
+    getGroup();
     MessagePlugin.success(t('pages.setting.form.success'));
   } catch (err) {
     console.log('[setting][site][removeEvent][error]', err);
@@ -251,7 +319,7 @@ const removeEvent = async (row) => {
   }
 };
 
-const handleAllDataEvent = (type) => {
+const handleAllDataEvent = async (type) => {
   try {
     const { select } = siteTableConfig.value;
     if (select.length === 0) {
@@ -260,12 +328,19 @@ const handleAllDataEvent = (type) => {
     }
     if (type === 'enable') {
       updateSiteStatus('enable', select);
+      tableUpdateIsActive(select, true);
     } else if (type === 'disable') {
       updateSiteStatus('disable', select);
+      tableUpdateIsActive(select, false);
     } else if (type === 'delete') {
       delSiteItem(select);
+      tableDelete(select);
+      pagination.total -= select.length;
+    } else if (type === 'check') {
+      MessagePlugin.info(t('pages.setting.message.checking'));
+      await checkAllSite(select);
     }
-    refreshEvent();
+
     MessagePlugin.success(t('pages.setting.form.success'));
   } catch (err) {
     console.log('[setting][site][handleAllDataEvent][error]', err);
@@ -308,7 +383,7 @@ const defaultEvent = async (row) => {
       display: flex;
       height: var(--td-comp-size-m);
       padding: 0 var(--td-comp-paddingLR-xs);
-      background-color: var(--td-bg-content-input);
+      background-color: var(--td-bg-content-input-2);
       border-radius: var(--td-radius-default);
       align-items: center;
       border-radius: var(--td-radius-medium);
@@ -326,30 +401,9 @@ const defaultEvent = async (row) => {
         &:hover {
           transition: all 0.2s ease 0s;
           color: var(--td-text-color-primary);
-          background-color: var(--td-bg-color-container-hover);
         }
       }
     }
-  }
-
-  :deep(.t-table) {
-    background-color: var(--td-bg-color-container);
-
-    tr {
-      background-color: var(--td-bg-color-container);
-
-      &:hover {
-        background-color: var(--td-bg-color-container-hover);
-      }
-    }
-  }
-
-  :deep(.t-table__header--fixed):not(.t-table__header--multiple)>tr>th {
-    background-color: var(--td-bg-color-container) !important;
-  }
-
-  :deep(.t-table__pagination) {
-    background-color: var(--td-bg-color-container) !important;
   }
 }
 </style>

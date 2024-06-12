@@ -2,7 +2,9 @@
   <div class="titlebar" @mousedown="handleMouseDown">
     <div class="left no-drag">
       <history-control />
-      <search-bar class="search" />
+      <search-bar class="mg-left"
+        v-if="route.name === 'FilmIndex' || route.name === 'IptvIndex' || route.name === 'AnalyzeIndex'" />
+      <player-show class="mg-left" />
     </div>
     <div class="right no-drag">
       <div class="system-functions">
@@ -18,8 +20,11 @@
 </template>
 
 <script setup lang="ts">
+import { useRoute } from 'vue-router';
+
 import HistoryControl from './HistoryControl.vue';
 import SearchBar from './SearchBar.vue';
+import PlayerShow from './PlayShow.vue';
 import SystemConfig from './SystemConfig.vue';
 import SystemControl from './SystemControl.vue';
 import SystemSkin from './SystemSkin.vue';
@@ -28,6 +33,7 @@ import Language from './Language.vue';
 import JustLook from './JustLook.vue'
 
 const { platform } = window.electron.process;
+const route = useRoute();
 
 const handleMouseDown = (event) => {
   if (event.detail === 2) {
@@ -42,7 +48,7 @@ const handleMouseDown = (event) => {
   display: flex;
   justify-content: space-between;
   height: 32px;
-  margin: var(--td-comp-margin-m) var(--td-comp-margin-xs);
+  margin: var(--td-comp-margin-m) var(--td-comp-margin-xs) var(--td-comp-margin-m) 0;
 
   .no-drag {
     -webkit-app-region: no-drag;
@@ -52,7 +58,7 @@ const handleMouseDown = (event) => {
     height: 100%;
     display: flex;
 
-    .search {
+    .mg-left {
       margin-left: 20px;
     }
   }

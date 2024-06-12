@@ -6,6 +6,8 @@ import FlvPlugin from 'xgplayer-flv.js';
 // import HlsPlugin from 'xgplayer-hls';
 import HlsPlugin from 'xgplayer-hls.js';
 import Mp4Plugin from 'xgplayer-mp4';
+import ShakaPlugin from 'xgplayer-shaka';
+// import DashPlugin from 'xgplayer-dash';
 
 import { publicColor, publicIcons } from './components';
 
@@ -75,7 +77,7 @@ const options = {
     area: { start: 0, end: 0.3 },
     defaultOff: true, //开启此项后弹幕不会初始化，默认初始化弹幕
   },
-  plugins: [Danmu],
+  plugins: [],
 };
 
 const barrge = (player: XgPlayer, comments: any, _url: string, _id: string) => {
@@ -96,6 +98,7 @@ const barrge = (player: XgPlayer, comments: any, _url: string, _id: string) => {
 
 const create = (options: any): XgPlayer => {
   const plugins = options.plugins;
+
   switch (options.type) {
     case 'customMp4':
       options.plugins = [...plugins, Mp4Plugin];
@@ -106,6 +109,8 @@ const create = (options: any): XgPlayer => {
     case 'customHls':
       options.plugins = [...plugins, HlsPlugin];
       break;
+    case 'customDash':
+      options.plugins = [...plugins, ShakaPlugin];
     case 'customWebTorrent':
       break;
     default:
@@ -116,6 +121,7 @@ const create = (options: any): XgPlayer => {
     SimplePlayer.defaultPreset = LivePreset;
     return new SimplePlayer({ ...options });
   } else {
+    options.plugins = [...options.plugins, Danmu];
     return new XgPlayer({ ...options });
   }
 };
